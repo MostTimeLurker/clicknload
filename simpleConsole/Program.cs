@@ -39,6 +39,13 @@ namespace simpleConsole
             cnl2Helper cnl2 = new cnl2Helper();
             cnl2.doProcessRequest(httpListenerContext);
 
+            Console.WriteLine(cnl2.item.rawRequestUrl);
+
+            for (int i = 0; i < cnl2.item.files.Length; i++)
+            {
+                Console.WriteLine(i + ": " + cnl2.item.files[i]);
+            }
+
 
             Console.WriteLine("HttpHelperOnProcessRequest END " + threadNumber);
         

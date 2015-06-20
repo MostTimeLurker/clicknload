@@ -11,20 +11,39 @@ using System.Web;
 
 namespace simpleConsole
 {
+    public struct cnl2Item
+    {
+        public String rawRequestUrl;
+
+        public String rawSource;
+        public String rawKey;
+        public String rawCrypted;
+
+        public Dictionary<String, String> rawValues;
+
+        public String key;
+        public String[] files;
+    }
+
     class cnl2Helper
     {
+        public cnl2Item item;
+
+        public cnl2Helper()
+        {
+            this.item = new cnl2Item();
+        }
+
         public void doProcessRequest(HttpListenerContext context)
         {
             HttpListenerRequest request = context.Request;
             HttpListenerResponse response = context.Response;
-            
-            String rawUrl = request.RawUrl;
-            //Console.WriteLine(rawUrl);
-            
-            String antwort = "";
-            String[] dateien;
 
-            switch (rawUrl)
+            this.item.rawRequestUrl = request.RawUrl;
+
+            String antwort = "";
+
+            switch (this.item.rawRequestUrl)
             {
                 case "/flash/":
                     antwort = "JDownloader";
@@ -34,17 +53,14 @@ namespace simpleConsole
                     break;
                 case "/flash/addcrypted2":
                 case "/flash/add":
-                    dateien = this.doProcessEncryptedData(request);
+                    this.doProcessEncryptedData(request);
                     antwort = "success";
                     break;
                 default:
+                    antwort = "Unbekannter Request '" + this.item.rawRequestUrl + "'";
                     break;
             }
 
-            if (antwort == "")
-            {
-                antwort = "Unbekannter Request '" + rawUrl + "'";
-            }
 
             StreamWriter sw = new StreamWriter(response.OutputStream);
             sw.WriteLine(antwort);
@@ -57,7 +73,7 @@ namespace simpleConsole
 
         // Umbauen in Object mit allen POST Daten'?
         // Fehlerbehandlung!
-        private String[] doProcessEncryptedData(HttpListenerRequest request)
+        private voi doProcessEncryptedData(HttpListenerRequest request)
         {
             String encodedData = new StreamReader(request.InputStream, request.ContentEncoding).ReadToEnd();
             String decodedData = HttpUtility.UrlDecode(encodedData);
@@ -75,17 +91,52 @@ namespace simpleConsole
             }
 
             //// jk=function f(){ return '31393238303030343036323831323939';}
-            String sourceUrl = this.doSaveGet("source", postData);
-            String key = this.doSaveGet("jk", postData);
-            String content = this.doSaveGet("crypted", postData);
 
-            if (key != "")
+            this.item.rawSource = this.doSaveGet("source", postData);
+            this.item.rawCrypted = this.doSaveGet("crypted", postData);
+            this.item.rawKey = this.doSaveGet("jk", postData);
+
+            this.item.rawValues = postData;
+
+            if (this.item.rawKey != "")
             {
-                key = key.Substring(key.IndexOf("'") + 1);
-                key = key.Substring(0, key.IndexOf("'"));
+                this.item.key = this.item.rawKey;
+
+                this.item.key = this.item.key.Substring(this.item.key.IndexOf("'") + 1);
+                this.item.key = this.item.key.Substring(0, this.item.key.IndexOf("'"));
             }
 
-            return this.doDecodeText(key, content);
+            this.doDecodeText();
+        }
+
+        private void doDecodeText()
+        {
+            Byte[] byteData = Convert.FromBase64String(this.item.rawCrypted);
+            String local_key = HexToString(this.item.key);
+
+
+            RijndaelManaged rijndaelCipher = new RijndaelManaged();
+            rijndaelCipher.Mode = CipherMode.CBC;
+            rijndaelCipher.Padding = PaddingMode.Zeros;
+            rijndaelCipher.KeySize = 256;
+            rijndaelCipher.BlockSize = 128;
+
+            byte[] pwdBytes = Encoding.Default.GetBytes(local_key);
+            byte[] keyBytes = new byte[16];
+
+            int len = pwdBytes.Length;
+            if (len > keyBytes.Length) len = keyBytes.Length;
+
+            Array.Copy(pwdBytes, keyBytes, len);
+
+            rijndaelCipher.Key = keyBytes;
+            rijndaelCipher.IV = keyBytes;
+
+            var transform = rijndaelCipher.CreateDecryptor();
+
+            byte[] cipherBytes = transform.TransformFinalBlock(byteData, 0, byteData.Length);
+            String result = Encoding.UTF8.GetString(cipherBytes).Trim("\0".ToCharArray());
+            this.item.files = result.Split(Environment.NewLine.ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
         }
 
         private String doSaveGet(String key, Dictionary<String, String> dict)
@@ -106,40 +157,6 @@ namespace simpleConsole
             }
             return Encoding.UTF8.GetString(buffer);//we could even have passed this encoding in for greater flexibility.
         }
-
-        private String[] doDecodeText(String key, String data, Encoding encoding = null)
-        {
-            Byte[] byteData = Convert.FromBase64String(data);
-            key = HexToString(key);
-
-
-            RijndaelManaged rijndaelCipher = new RijndaelManaged();
-            rijndaelCipher.Mode = CipherMode.CBC;
-            rijndaelCipher.Padding = PaddingMode.Zeros;
-            rijndaelCipher.KeySize = 256;
-            rijndaelCipher.BlockSize = 128;
-
-            byte[] pwdBytes = Encoding.Default.GetBytes(key);
-            byte[] keyBytes = new byte[16];
-
-            int len = pwdBytes.Length;
-            if (len > keyBytes.Length) len = keyBytes.Length;
-
-            Array.Copy(pwdBytes, keyBytes, len);
-
-            rijndaelCipher.Key = keyBytes;
-            rijndaelCipher.IV = keyBytes;
-
-            var transform = rijndaelCipher.CreateDecryptor();
-
-            byte[] cipherBytes = transform.TransformFinalBlock(byteData, 0, byteData.Length);
-            String result = Encoding.UTF8.GetString(cipherBytes).Trim("\0".ToCharArray());
-            String[] dateien = result.Split(Environment.NewLine.ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
-
-            return dateien;
-
-        }
-
 
     }
 }
