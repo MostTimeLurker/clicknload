@@ -73,7 +73,7 @@ namespace simpleConsole
 
         // Umbauen in Object mit allen POST Daten'?
         // Fehlerbehandlung!
-        private voi doProcessEncryptedData(HttpListenerRequest request)
+        private void doProcessEncryptedData(HttpListenerRequest request)
         {
             String encodedData = new StreamReader(request.InputStream, request.ContentEncoding).ReadToEnd();
             String decodedData = HttpUtility.UrlDecode(encodedData);
