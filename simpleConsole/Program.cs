@@ -11,7 +11,7 @@ namespace simpleConsole
     class Program
     {
         static void Main(string[] args)
-        {
+         {
             /*
              TODO: 
              * httplistener multithreaded done
@@ -22,7 +22,7 @@ namespace simpleConsole
              * export nach dlc? falls moeglich
              
              */
-            HttpHelper httpHelper = new HttpHelper();
+            HttpHelper httpHelper = new HttpHelper(3, "127.0.0.1", "9667");
             httpHelper.ProcessRequest += HttpHelperOnProcessRequest;
             httpHelper.Start();
             //HttpHelper.Run();
@@ -41,9 +41,13 @@ namespace simpleConsole
 
             Console.WriteLine(cnl2.item.rawRequestUrl);
 
-            for (int i = 0; i < cnl2.item.files.Length; i++)
+            if (cnl2.item.files != null)
             {
-                Console.WriteLine(i + ": " + cnl2.item.files[i]);
+
+                for (int i = 0; i < cnl2.item.files.Length; i++)
+                {
+                    Console.WriteLine(i + ": " + cnl2.item.files[i]);
+                }
             }
 
 

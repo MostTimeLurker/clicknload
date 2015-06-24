@@ -14,16 +14,16 @@ namespace simpleConsole
         private readonly Thread[] workerThreads;
 
         private readonly ManualResetEvent _stop, _ready;
-        private Queue<HttpListenerContext> _queue;
+        private readonly Queue<HttpListenerContext> _queue;
 
         // netsh http add urlacl http://+:8008/ user=Everyone listen=true
         // C:\Windows\system32>netsh http add urlacl http://127.0.0.1:9666/ user=Jeder listen=yes
-        public HttpHelper(int maxConcurentThreads = 5, int min = 0)
+        public HttpHelper(int maxConcurrentThreads = 5, String ip = "127.0.0.1", String port = "9666")
         {
-            this.listener.Prefixes.Add("http://127.0.0.1:9666/");
+            this.listener.Prefixes.Add("http://" + ip + ":" + port + "/");
             this.listener.AuthenticationSchemes = AuthenticationSchemes.Anonymous;
 
-            this.workerThreads = new Thread[maxConcurentThreads];
+            this.workerThreads = new Thread[maxConcurrentThreads];
             this._queue = new Queue<HttpListenerContext>();
             this._stop = new ManualResetEvent(false);
             this._ready = new ManualResetEvent(false);
@@ -38,7 +38,7 @@ namespace simpleConsole
 
             for (int i = 0; i < workerThreads.Length; i++)
             {
-                workerThreads[i] = new Thread(new ParameterizedThreadStart( HttpWorker));
+                workerThreads[i] = new Thread( HttpWorker);
                 workerThreads[i].Start(i);
             }
         }
@@ -49,7 +49,9 @@ namespace simpleConsole
             this.serverThread.Join();
 
             foreach (Thread worker in this.workerThreads)
+            {
                 worker.Join();
+            }
 
             this.listener.Stop();
         }
@@ -61,8 +63,10 @@ namespace simpleConsole
             {
                 var context = this.listener.BeginGetContext(ContextReady, null);
 
-                if (0 == WaitHandle.WaitAny(new[] { _stop, context.AsyncWaitHandle }))
+                if (0 == WaitHandle.WaitAny(new[] {_stop, context.AsyncWaitHandle}))
+                {
                     return;
+                }
             }
 
         }
@@ -77,7 +81,10 @@ namespace simpleConsole
                     _ready.Set();
                 }
             }
-            catch { return; }
+            catch
+            {
+                return;
+            }
         }
 
         private void HttpWorker(object threadNumber)
@@ -97,8 +104,14 @@ namespace simpleConsole
                     }
                 }
 
-                try { ProcessRequest(context, threadNumber); }
-                catch (Exception e) { Console.Error.WriteLine(e); }
+                try
+                {
+                    ProcessRequest(context, threadNumber);
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine(ex);
+                }
             }
         }
 
